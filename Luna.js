@@ -1,7 +1,7 @@
 const fs = require('fs');
 const login = require("facebook-chat-api");
 
-var CWD = 'C:\\Users\\Kuuhaku\\Desktop\\Facebook-Userbot-Script\\';
+var CWD = '/home/smith/repos/facebook-userbot-script/';
 
 function loadDefault(){
     if (fs.existsSync(CWD+'ContactData.json')){
@@ -23,6 +23,7 @@ function loadData(path, filename){
 }
 var contacts = loadDefault();
 
+// I don't know how other files work in js so it's all going right here
 function rollDice(maxValue){
   let roll = Math.floor(Math.random() * maxValue) + 1;
   return roll;
@@ -209,10 +210,6 @@ function getMessage(intent){
           }else{
             if(intent.numDice > 1 && !intent.advantage && !intent.disadvantage){
               message += ')';
-              if(intent.modifier > 0){
-                message += ' + ' + intent.modifier;
-                sum += intent.modifier;
-              }
             }
           }
 
@@ -237,12 +234,12 @@ function getMessage(intent){
     if(intent.coinFlip){
       message += intent.flip;
     }
-    console.log(message);
     return message;
     return JSON.stringify(intent) + '\nNot\nAvailable\nNow\nI\'m Sorry';
 }
 
-login({appState: JSON.parse(fs.readFileSync('appstate.json', 'utf8'))}, (err, api) => {    if (err) return console.error(err);
+login({appState: JSON.parse(fs.readFileSync('appstate.json', 'utf8'))}, (err, api) => {
+    if (err) return console.error(err);
     let hasFocus = false;
     let messages = 20;
 
@@ -269,7 +266,10 @@ login({appState: JSON.parse(fs.readFileSync('appstate.json', 'utf8'))}, (err, ap
                             "groupsAssociated": [userID],
                             "gender": info[userID].gender,
                             "title": "Sir",
-                            "afinity": 0
+                            "affinity": 0,
+                            "messages": 0,
+                            "recentMessages": 0,
+                            "lastSent": new Date()
                         };
                         if (contacts[name].gender === 1){
                             contacts[name].title = 'Ma\'am';
@@ -298,7 +298,7 @@ login({appState: JSON.parse(fs.readFileSync('appstate.json', 'utf8'))}, (err, ap
                         }
                     }
 
-                    saveData(contacts, CWD, 'ContactData.json');
+
                     /*console.log(contacts)
                     if (event.senderID === contacts.Shawn.ID && event.isGroup){
                         console.log('tEST')
@@ -313,23 +313,61 @@ login({appState: JSON.parse(fs.readFileSync('appstate.json', 'utf8'))}, (err, ap
                     }*/
 
 
-                });
-                // Insert Meme: Is this machine
-                if(event.body.toUpperCase().includes('LUNA') || hasFocus){
-                    let intent = getIntent(event.body.toUpperCase(), messages);
-                    if(intent.keepFocus){
-                      hasFocus = true;
-                      messages = 0;
+                    for(let key in contacts){
+                      if(name === key){
+                        let now = new Date();
+                        let lastSent = new Date(contacts[name].lastSent);
+                        if(contacts[name].recentMessages >= 5 && lastSent.getHours() - now.getHours() === 0 && lastSent.getMinutes() - now.getMinutes() === 0 && lastSent.getSeconds() - now.getSeconds() === 0){
+                          let ID = (event.isGroup ? event.threadID : event.senderID);
+                          api.sendMessage('Please stop spamming', ID);
+                          contacts[name].affinity -= 5;
+                        }
+                        contacts[name].recentMessages += 1;
+                        contacts[name].messages += 1;
+                        contacts[name].lastSent = now;
+                      }else{
+                        contacts[key].recentMessages = 0;
+                      }
                     }
-                    message = getMessage(intent);
-                    let ID = (event.isGroup) ? event.threadID : event.senderID;
-                    api.sendMessage(message, ID);
 
-                }
-                messages++;
-                if(messages >= 7){
-                  hasFocus = false;
-                }
+                    // Insert Meme: Is this machine learning
+                    if(event.body.toUpperCase().includes('LUNA') || hasFocus){
+                        let intent = getIntent(event.body.toUpperCase(), messages);
+                        if(intent.keepFocus){
+                          hasFocus = true;
+                          messages = 0;
+                        }
+                        message = getMessage(intent);
+                        let ID = (event.isGroup) ? event.threadID : event.senderID;
+                        if(!(message === '')){
+                          if(intent.kindness){
+                            contacts[name].affinity += 1;
+                          }
+                          if(intent.rudeness){
+                            contacts[name].afffinity -= 2;
+                          }
+                          api.sendMessage(message, ID);
+                        }
+
+                    }
+                    messages++;
+                    if(messages >= 7){
+                      hasFocus = false;
+                    }
+                    saveData(contacts, CWD, 'ContactData.json');
+                    if(event.body === 'print my info'){
+                      let ID = (event.isGroup) ? event.threadID : event.senderID;
+                        api.sendMessage('```javascript\n' + JSON.stringify(contacts[name]) + '```', ID);
+                    }
+                    if(event.body === 'print all info' && event.senderID === contacts["Miles"].ID){
+                      let ID = (event.isGroup) ? event.threadID : event.senderID;
+                      api.sendMessage('```javascript \n' + JSON.stringify(contacts) + '```', ID);
+                    }
+
+                    
+
+                });
+
                 /* Update group information
                     Maybe later
                     Analyze what type of message was just sent
@@ -371,4 +409,10 @@ login({appState: JSON.parse(fs.readFileSync('appstate.json', 'utf8'))}, (err, ap
                 break;
         }
     });
+
 });
+
+let test = new Date();
+console.log(test);
+console.log(test.getMinutes());
+console.log(test.getHours());
